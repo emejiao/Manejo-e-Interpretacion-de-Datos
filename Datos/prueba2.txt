@@ -1,0 +1,138 @@
+,0
+0,"# ----------------------- ATOM DEFINITION ----------------------------
+"
+1,"lattice		fcc ${latparam}
+"
+2,"region		whole block 0 10 0 10 0 10
+"
+3,"create_box	1 whole
+"
+4,"
+"
+5,"region		upper block INF INF INF INF INF INF units box 
+"
+6,"lattice 	fcc ${latparam} orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+"
+7,"create_atoms	1 region upper
+"
+8,"
+"
+9,"# ------------------------ FORCE FIELDS ------------------------------
+"
+10,"pair_style	eam/alloy
+"
+11,"pair_coeff	* * Al99.eam.alloy Al
+"
+12,"
+"
+13,"# ------------------------- SETTINGS ---------------------------------
+"
+14,"compute csym all centro/atom fcc
+"
+15,"compute peratom all pe/atom 
+"
+16,"
+"
+17,"######################################
+"
+18,"# EQUILIBRATION
+"
+19,"reset_timestep	0
+"
+20,"timestep 0.001
+"
+21,"velocity all create 300 12345 mom yes rot no
+"
+22,"fix 1 all npt temp 300 300 1 iso 0 0 1 drag 1 
+"
+23,"
+"
+24,"# Set thermo output
+"
+25,"thermo 1000
+"
+26,"thermo_style custom step lx ly lz press pxx pyy pzz pe temp
+"
+27,"
+"
+28,"# Run for at least 10 picosecond (assuming 1 fs timestep)
+"
+29,"run 20000
+"
+30,"unfix 1
+"
+31,"
+"
+32,"# Store final cell length for strain calculations
+"
+33,"variable tmp equal ""lx""
+"
+34,"variable L0 equal ${tmp}
+"
+35,"print ""Initial Length, L0: ${L0}""
+"
+36,"
+"
+37,"######################################
+"
+38,"# DEFORMATION
+"
+39,"reset_timestep	0
+"
+40,"
+"
+41,"fix		1 all npt temp 300 300 1 y 0 0 1 z 0 0 1 drag 1
+"
+42,"variable srate equal 1.0e10
+"
+43,"variable srate1 equal ""-v_srate / 1.0e12""
+"
+44,"fix		2 all deform 1 x erate ${srate1} units box remap x
+"
+45,"
+"
+46,"# Output strain and stress info to file
+"
+47,"# for units metal, pressure is in [bars] = 100 [kPa] = 1/10000 [GPa]
+"
+48,"# p2, p3, p4 are in GPa
+"
+49,"variable strain equal ""(lx - v_L0)/v_L0""
+"
+50,"variable p1 equal ""v_strain""
+"
+51,"variable p2 equal ""-pxx/10000""
+"
+52,"variable p3 equal ""-pyy/10000""
+"
+53,"variable p4 equal ""-pzz/10000""
+"
+54,"fix def1 all print 100 ""${p1} ${p2} ${p3} ${p4}"" file Al_comp_100.def1.txt screen no
+"
+55,"
+"
+56,"# Use cfg for AtomEye
+"
+57,"dump 		1 all cfg 250 dump.comp_*.cfg mass type xs ys zs c_csym c_peratom fx fy fz
+"
+58,"dump_modify     1 element Al
+"
+59,"
+"
+60,"# Display thermo
+"
+61,"thermo 	1000
+"
+62,"thermo_style	custom step v_strain temp v_p2 v_p3 v_p4 ke pe press
+"
+63,"
+"
+64,"run		20000
+"
+65,"
+"
+66,"######################################
+"
+67,"# SIMULATION DONE
+"
+68,"print ""All done"""
